@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Embedded System Developer
+ * Copyright (c) 2026 Chanwoo Lee
  * SPDX-License-Identifier: Apache-2.0
  *
  * Sim Racing Gear Shift Emulator using Zephyr RTOS & Virtual CAN
