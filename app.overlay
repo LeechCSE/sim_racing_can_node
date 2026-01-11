@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) 2024 Embedded System Developer
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Description: DeviceTree Overlay for Virtual CAN Loopback Configuration.
+ * This overlay abstracts the hardware layer, enabling the application to run
+ * on the ESP32 without a physical CAN Transceiver or specific pin connections.
+ */
+
+/ {
+	chosen {
+		/*
+		 * Select the Virtual CAN Loopback driver as the primary CAN bus.
+		 * 
+		 * Since a physical CAN transceiver is not currently attached,
+		 * map the 'zephyr,canbus' alias to the software-emulated 
+		 * 'can_loopback0' node. This allows the C++ application logic to 
+		 * remain hardware-agnostic.
+		 */
+		zephyr,canbus = &can_loopback0;
+	};
+
+	/*
+	 * Define the Virtual CAN Controller Node.
+	 * * Driver: zephyr,can-loopback
+	 * Echoes transmitted frames back to the RX queue in software.
+	 */
+	can_loopback0: can_loopback0 {
+		compatible = "zephyr,can-loopback";
+		status = "okay";
+		bitrate = <500000>;
+	};
+};
+
+/* * Physical Pin Configuration
+ */
+/*
+&pinctrl {
+	twai_default: twai_default {
+		group1 {
+			pinmux = <ESP32_PINMUX(5, 256, 123)>,  // TX: GPIO 5
+				     <ESP32_PINMUX(4, 124, 256)>;  // RX: GPIO 4
+			bias-pull-up;
+		};
+	};
+};
+
+&twai {
+	status = "okay";
+	pinctrl-0 = <&twai_default>;
+	pinctrl-names = "default";
+	bus-speed = <500000>;
+};
+*/
