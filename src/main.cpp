@@ -9,16 +9,24 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-/* Configuration Constants */
-#define CAN_GEAR_MSG_ID 0x100
-#define CAN_MSG_DLC 1
-#define TX_THREAD_STACK_SIZE 2048
-#define TX_THREAD_PRIORITY 5
-#define GEAR_SHIFT_INTERVAL K_SECONDS(2)
-#define TX_TIMEOUT K_MSEC(100)
+#include <cstdint>  // uint8_t, uint32_t
+
+#include "app_config.hpp"
 
 /* Register Log Module */
 LOG_MODULE_REGISTER(sim_racing_node, LOG_LEVEL_INF);
+
+enum class Gear : uint8_t { N = 0, First, Second, Third, Fourth, Fifth, Sixth };
+
+/* Overload prefix increment operator (++g) for cyclic shifting */
+Gear& operator++(Gear& g) {
+  using enum Gear;  // C++20 Feature: Reduces verbosity (no need for Gear::N,
+                    // Gear::Sixth)
+
+  // Cyclic Logic: If Sixth, reset to N. Otherwise, increment.
+  g = (g == Sixth) ? N : static_cast<Gear>(static_cast<uint8_t>(g) + 1);
+  return g;
+}
 
 /**
  * @brief SimWheel Class
@@ -29,14 +37,15 @@ LOG_MODULE_REGISTER(sim_racing_node, LOG_LEVEL_INF);
 class SimWheel {
  private:
   const struct device* dev;
-  uint8_t current_gear;
+  Gear current_gear;
 
  public:
   /**
    * @brief Construct a new Sim Wheel object
    * * @param can_device Pointer to the Zephyr CAN device structure
    */
-  SimWheel(const struct device* can_device) : dev(can_device), current_gear(0) {
+  SimWheel(const struct device* can_device)
+      : dev(can_device), current_gear(Gear::N) {
     if (!device_is_ready(dev)) {
       LOG_ERR("CAN device not ready");
       return;
@@ -66,22 +75,21 @@ class SimWheel {
   void shift_gear() {
     struct can_frame frame = {0};
 
-    /* Update Gear Logic */
-    current_gear++;
-    if (current_gear > 6) {
-      current_gear = 0;
-    }
+    /* Update Gear Logic using overloaded operator */
+    ++current_gear;
 
     /* Prepare CAN Frame */
-    frame.id = CAN_GEAR_MSG_ID;
-    frame.dlc = CAN_MSG_DLC;
-    frame.data[0] = current_gear;
+    frame.id = Config::CAN_GEAR_MSG_ID;
+    frame.dlc = Config::CAN_MSG_DLC;
+    // Explicit cast required for type safety (Enum Class -> uint8_t)
+    frame.data[0] = static_cast<uint8_t>(current_gear);
 
     /* Transmit Frame (Non-blocking with timeout) */
-    int ret = can_send(dev, &frame, TX_TIMEOUT, NULL, NULL);
+    int ret = can_send(dev, &frame, Config::TX_TIMEOUT, NULL, NULL);
 
     if (ret == 0) {
-      LOG_INF("[TX] Gear Shifted -> %d", current_gear);
+      // Cast for logging display
+      LOG_INF("[TX] Gear Shifted -> %d", static_cast<uint8_t>(current_gear));
     } else {
       LOG_ERR("CAN Send Failed (Error: %d)", ret);
     }
@@ -101,7 +109,7 @@ void tx_thread_entry(void* arg1, void* arg2, void* arg3) {
 
   while (1) {
     myWheel.shift_gear();
-    k_sleep(GEAR_SHIFT_INTERVAL);
+    k_sleep(Config::GEAR_SHIFT_INTERVAL);
   }
 }
 
@@ -111,18 +119,19 @@ void tx_thread_entry(void* arg1, void* arg2, void* arg3) {
  */
 void can_rx_callback(const struct device* dev, struct can_frame* frame,
                      void* user_data) {
-  if (frame->id == CAN_GEAR_MSG_ID) {
+  if (frame->id == Config::CAN_GEAR_MSG_ID) {
     LOG_INF(">>> [RX] Base Unit received Gear: %d", frame->data[0]);
   }
 }
 
-/* Define and initialize the TX thread */
-K_THREAD_DEFINE(tx_tid, TX_THREAD_STACK_SIZE, tx_thread_entry, NULL, NULL, NULL,
-                TX_THREAD_PRIORITY, 0, 0);
+/* Define and initialize the TX thread using Config constants */
+K_THREAD_DEFINE(tx_tid, Config::TX_THREAD_STACK_SIZE, tx_thread_entry, NULL,
+                NULL, NULL, Config::TX_THREAD_PRIORITY, 0, 0);
 
 int main(void) {
   /* Configure RX Filter to accept specific IDs */
-  struct can_filter filter = {.id = CAN_GEAR_MSG_ID, .mask = CAN_STD_ID_MASK};
+  struct can_filter filter = {.id = Config::CAN_GEAR_MSG_ID,
+                              .mask = CAN_STD_ID_MASK};
 
   can_add_rx_filter(can_dev, &can_rx_callback, NULL, &filter);
 
