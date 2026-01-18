@@ -8,7 +8,7 @@ To overcome the lack of a physical CAN Transceiver during the initial developmen
 ## 🛠️ Tech Stack & Development Environment
 * **Operating System:** Zephyr RTOS (v4.3.0+)
 * **Host Environment:** Windows 11 + WSL2 (Ubuntu 22.04) with VS Code Remote
-* **Language:** C++17 (Modern C++ with RAII pattern, No-Heap policy)
+* **Language:** C++20 (Modern C++ with RAII pattern, No-Heap policy)
 * **Build System:** West (Zephyr Meta-Tool), CMake, Ninja
 * **Configuration:** Kconfig (`prj.conf`), DeviceTree Overlay (`app.overlay`)
 * **Hardware Target:** Espressif ESP32 DevKitC V4 (ESP32-WROOM-32)
